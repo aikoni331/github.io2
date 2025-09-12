@@ -1,31 +1,108 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>YouTube動画再生ボタン</title>
+<meta charset="UTF-8">
+<title>スマホ歩けるブロックゲーム</title>
+<style>
+  body { margin:0; overflow:hidden; touch-action:none; }
+  canvas { display:block; }
+  /* 仮想スティック */
+  #joystick { position:absolute; bottom:30px; left:30px; width:100px; height:100px; background:rgba(0,0,0,0.3); border-radius:50%; }
+</style>
 </head>
 <body>
-    <h1>動画再生サンプル</h1>
+<div id="joystick"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
+<script>
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-    <!-- 埋め込み用iframe（最初は非表示） -->
-    <div id="videoContainer" style="display:none;">
-        <iframe id="youtubeVideo" width="640" height="360"
-            src=""
-            frameborder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowfullscreen>
-        </iframe>
-    </div>
+// ライト
+const light = new THREE.DirectionalLight(0xffffff,1);
+light.position.set(5,10,7);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040));
 
-    <!-- 再生ボタン -->
-    <button onclick="playYouTube()">動画を再生</button>
+// 地面
+const groundGeo = new THREE.BoxGeometry(20,1,20);
+const groundMat = new THREE.MeshStandardMaterial({color:0x228B22});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.position.y = -0.5;
+scene.add(ground);
 
-    <script>
-        function playYouTube() {
-            var iframe = document.getElementById("youtubeVideo");
-            iframe.src = "https://www.youtube.com/embed/s7FgdaGOw9s?autoplay=1"; // 動画IDを埋め込む
-            document.getElementById("videoContainer").style.display = "block"; // iframeを表示
-        }
-    </script>
+// ブロック追加関数
+function addBlock(x,y,z){
+  const geo = new THREE.BoxGeometry(1,1,1);
+  const mat = new THREE.MeshStandardMaterial({color:0x8B4513});
+  const block = new THREE.Mesh(geo, mat);
+  block.position.set(x,y,z);
+  scene.add(block);
+}
+addBlock(0,0,0);
+
+// カメラ初期位置
+camera.position.set(0,2,5);
+
+// タッチスワイプで視点操作
+let touchStart = null;
+renderer.domElement.addEventListener('touchstart', e => {
+  if(e.touches.length==1) touchStart = {x:e.touches[0].pageX, y:e.touches[0].pageY};
+});
+renderer.domElement.addEventListener('touchmove', e => {
+  if(touchStart && e.touches.length==1){
+    const deltaX = (e.touches[0].pageX - touchStart.x)*0.005;
+    const deltaY = (e.touches[0].pageY - touchStart.y)*0.005;
+    camera.rotation.y -= deltaX;
+    camera.rotation.x -= deltaY;
+    if(camera.rotation.x > Math.PI/2) camera.rotation.x = Math.PI/2;
+    if(camera.rotation.x < -Math.PI/2) camera.rotation.x = -Math.PI/2;
+    touchStart = {x:e.touches[0].pageX, y:e.touches[0].pageY};
+  }
+});
+
+// 仮想スティック
+const joystick = document.getElementById('joystick');
+let move = {x:0, z:0};
+joystick.addEventListener('touchmove', e=>{
+  const rect = joystick.getBoundingClientRect();
+  const touch = e.touches[0];
+  move.x = (touch.clientX - rect.left - rect.width/2)/50;
+  move.z = (touch.clientY - rect.top - rect.height/2)/50;
+});
+joystick.addEventListener('touchend', e=>{
+  move.x=0; move.z=0;
+});
+
+// ブロック追加タップ
+renderer.domElement.addEventListener('touchend', e=>{
+  if(e.touches.length==0) addBlock(
+    Math.floor(Math.random()*5)-2,
+    0,
+    Math.floor(Math.random()*5)-2
+  );
+});
+
+// アニメーション
+function animate(){
+  requestAnimationFrame(animate);
+  // カメラ移動
+  const forward = new THREE.Vector3(Math.sin(camera.rotation.y),0,Math.cos(camera.rotation.y));
+  const right = new THREE.Vector3(Math.sin(camera.rotation.y+Math.PI/2),0,Math.cos(camera.rotation.y+Math.PI/2));
+  camera.position.addScaledVector(forward, -move.z*0.1);
+  camera.position.addScaledVector(right, move.x*0.1);
+  renderer.render(scene,camera);
+}
+animate();
+
+// リサイズ対応
+window.addEventListener('resize', ()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
 </body>
 </html>
