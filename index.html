@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube動画再生ボタン</title>
+</head>
+<body>
+    <h1>動画再生サンプル</h1>
+
+    <!-- 埋め込み用iframe（最初は非表示） -->
+    <div id="videoContainer" style="display:none;">
+        <iframe id="youtubeVideo" width="640" height="360"
+            src=""
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+        </iframe>
+    </div>
+
+    <!-- 再生ボタン -->
+    <button onclick="playYouTube()">動画を再生</button>
+
+    <script>
+        function playYouTube() {
+            var iframe = document.getElementById("youtubeVideo");
+            iframe.src = "https://www.youtube.com/embed/s7FgdaGOw9s?autoplay=1"; // 動画IDを埋め込む
+            document.getElementById("videoContainer").style.display = "block"; // iframeを表示
+        }
+    </script>
+</body>
+</html>
