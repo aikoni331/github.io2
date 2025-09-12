@@ -2,103 +2,130 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>スマホ歩けるブロックゲーム</title>
+<title>ブロック＆木ゲーム</title>
 <style>
-  body { margin:0; overflow:hidden; touch-action:none; }
-  canvas { display:block; }
-  /* 仮想スティック */
-  #joystick { position:absolute; bottom:30px; left:30px; width:100px; height:100px; background:rgba(0,0,0,0.3); border-radius:50%; }
+body { margin:0; overflow:hidden; touch-action:none; }
+canvas { display:block; }
+#controls {
+  position:absolute; bottom:30px; left:30px;
+  width:120px; height:120px;
+  display:grid;
+  grid-template-columns:40px 40px 40px;
+  grid-template-rows:40px 40px 40px;
+  gap:2px;
+}
+button { font-size:20px; opacity:0.5; border:none; border-radius:5px; background:#555; color:white; }
 </style>
 </head>
 <body>
-<div id="joystick"></div>
+<div id="controls">
+  <div></div><button id="up">↑</button><div></div>
+  <button id="left">←</button><div></div><button id="right">→</button>
+  <div></div><button id="down">↓</button><div></div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
 <script>
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb); // 空色
+
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // ライト
-const light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(5,10,7);
-scene.add(light);
+const dirLight = new THREE.DirectionalLight(0xffffff,1);
+dirLight.position.set(5,10,7);
+scene.add(dirLight);
 scene.add(new THREE.AmbientLight(0x404040));
 
 // 地面
-const groundGeo = new THREE.BoxGeometry(20,1,20);
-const groundMat = new THREE.MeshStandardMaterial({color:0x228B22});
+const groundGeo = new THREE.BoxGeometry(50,1,50);
+const groundMat = new THREE.MeshStandardMaterial({color:0x228B22, roughness:1, metalness:0});
 const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.position.y = -0.5;
+ground.position.y=-0.5;
+ground.receiveShadow = true;
 scene.add(ground);
 
-// ブロック追加関数
+// ブロック
 function addBlock(x,y,z){
   const geo = new THREE.BoxGeometry(1,1,1);
-  const mat = new THREE.MeshStandardMaterial({color:0x8B4513});
+  const mat = new THREE.MeshStandardMaterial({color:0x8B4513, roughness:0.6, metalness:0});
   const block = new THREE.Mesh(geo, mat);
-  block.position.set(x,y,z);
+  block.position.set(x,y+0.5,z);
+  block.castShadow = true;
   scene.add(block);
 }
 addBlock(0,0,0);
+addBlock(2,0,0);
+addBlock(-2,0,0);
+
+// 木の作成（幹 + 葉）
+function addTree(x,z){
+  const trunkGeo = new THREE.CylinderGeometry(0.2,0.2,1);
+  const trunkMat = new THREE.MeshStandardMaterial({color:0x8B4513});
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.set(x,0.5,z);
+  scene.add(trunk);
+  
+  const leavesGeo = new THREE.ConeGeometry(0.6,1,8);
+  const leavesMat = new THREE.MeshStandardMaterial({color:0x00ff00});
+  const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+  leaves.position.set(x,1.3,z);
+  scene.add(leaves);
+}
+addTree(3,3);
+addTree(-4,2);
+addTree(0,5);
 
 // カメラ初期位置
 camera.position.set(0,2,5);
 
-// タッチスワイプで視点操作
+// 視点操作（スワイプ）
 let touchStart = null;
 renderer.domElement.addEventListener('touchstart', e => {
-  if(e.touches.length==1) touchStart = {x:e.touches[0].pageX, y:e.touches[0].pageY};
+  if(e.touches.length==1) touchStart={x:e.touches[0].pageX, y:e.touches[0].pageY};
 });
-renderer.domElement.addEventListener('touchmove', e => {
+renderer.domElement.addEventListener('touchmove', e=>{
   if(touchStart && e.touches.length==1){
     const deltaX = (e.touches[0].pageX - touchStart.x)*0.005;
     const deltaY = (e.touches[0].pageY - touchStart.y)*0.005;
     camera.rotation.y -= deltaX;
     camera.rotation.x -= deltaY;
-    if(camera.rotation.x > Math.PI/2) camera.rotation.x = Math.PI/2;
-    if(camera.rotation.x < -Math.PI/2) camera.rotation.x = -Math.PI/2;
+    if(camera.rotation.x>Math.PI/2) camera.rotation.x=Math.PI/2;
+    if(camera.rotation.x<-Math.PI/2) camera.rotation.x=-Math.PI/2;
     touchStart = {x:e.touches[0].pageX, y:e.touches[0].pageY};
   }
 });
 
-// 仮想スティック
-const joystick = document.getElementById('joystick');
-let move = {x:0, z:0};
-joystick.addEventListener('touchmove', e=>{
-  const rect = joystick.getBoundingClientRect();
-  const touch = e.touches[0];
-  move.x = (touch.clientX - rect.left - rect.width/2)/50;
-  move.z = (touch.clientY - rect.top - rect.height/2)/50;
-});
-joystick.addEventListener('touchend', e=>{
-  move.x=0; move.z=0;
-});
-
-// ブロック追加タップ
-renderer.domElement.addEventListener('touchend', e=>{
-  if(e.touches.length==0) addBlock(
-    Math.floor(Math.random()*5)-2,
-    0,
-    Math.floor(Math.random()*5)-2
-  );
-});
+// 十字キー
+const move = {forward:false, backward:false, left:false, right:false};
+function setMove(key,state){ move[key]=state; }
+document.getElementById('up').addEventListener('touchstart',()=>setMove('forward',true));
+document.getElementById('up').addEventListener('touchend',()=>setMove('forward',false));
+document.getElementById('down').addEventListener('touchstart',()=>setMove('backward',true));
+document.getElementById('down').addEventListener('touchend',()=>setMove('backward',false));
+document.getElementById('left').addEventListener('touchstart',()=>setMove('left',true));
+document.getElementById('left').addEventListener('touchend',()=>setMove('left',false));
+document.getElementById('right').addEventListener('touchstart',()=>setMove('right',true));
+document.getElementById('right').addEventListener('touchend',()=>setMove('right',false));
 
 // アニメーション
 function animate(){
   requestAnimationFrame(animate);
-  // カメラ移動
   const forward = new THREE.Vector3(Math.sin(camera.rotation.y),0,Math.cos(camera.rotation.y));
   const right = new THREE.Vector3(Math.sin(camera.rotation.y+Math.PI/2),0,Math.cos(camera.rotation.y+Math.PI/2));
-  camera.position.addScaledVector(forward, -move.z*0.1);
-  camera.position.addScaledVector(right, move.x*0.1);
+  if(move.forward) camera.position.addScaledVector(forward,-0.1);
+  if(move.backward) camera.position.addScaledVector(forward,0.1);
+  if(move.left) camera.position.addScaledVector(right,-0.1);
+  if(move.right) camera.position.addScaledVector(right,0.1);
   renderer.render(scene,camera);
 }
 animate();
 
-// リサイズ対応
-window.addEventListener('resize', ()=>{
+// リサイズ
+window.addEventListener('resize',()=>{
   camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth,window.innerHeight);
